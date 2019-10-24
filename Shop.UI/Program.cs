@@ -100,9 +100,6 @@ namespace Shop.UI
 			//QIWI_API_Class q_raw = new QIWI_API_Class("af7899285396f3a5ee94f5545d210f5d"); // токен от 04
 			//QIWI_API_Class q_raw = new QIWI_API_Class("cff2e4ebb1cb99dd86863e868bbf1eae"); // токен от 03
 			QIWI_API_Class q_raw = new QIWI_API_Class(token);
-			//QiwiPaymentsDataClass payments = q_raw.PaymentHistory(); // Получить историю транзакций
-			//QiwiTotalPaymentsClass total_payments = q_raw.PaymentsTotal(DateTime.Now.AddDays(-90), DateTime.Now); // Получить оборотную суммарную статистику за интересующий период
-			//QiwiPaymentClass transaction_info = q_raw.TransactionIdInfo(12158385869, "OUT"); // Получить информацию о транзакции
 			//QiwiCurrentBalanceClass cur_balance = q_raw.CurrentBalance; // Получить информацию о балансе кошелька
 			//Console.WriteLine(cur_balance.GetQiwiBalance);
 			QiwiTransactionsUniversalDetailsPaymentClass details_universal_transaction = new QiwiTransactionsUniversalDetailsPaymentClass(); // Этот набор реквизитов универсален. Подходит для перевода на QIWI, для пополнения баланса, для перевода на карту банка и другие переводы, которые требуют один реквизит [номер получателя]
@@ -118,7 +115,7 @@ namespace Shop.UI
 			}
 			else
 			{
-				Console.WriteLine("Платеж успешно совершен");
+				WriteMessage("Платеж успешно совершен");
 				user.Balance += fillSum * 1000;
 				UpdateUser();
 			}
@@ -140,31 +137,30 @@ namespace Shop.UI
 		private static bool Authorization()
 		{
 			Console.Clear();
-			string truePassword, trueVerCode;
+			string truePassword = null, trueVerCode;
 			string login, password, verCode;
 			bool wrong = false;
 			int attemptToLogIn = 0;
 			Console.WriteLine("Введите Логин: ");
 			login = Console.ReadLine();
-			truePassword = getHashedPassByLogin(login);
-			Console.WriteLine("Введите пароль: ");
-			password = ConsoleReadLineButHashed();
-			Console.WriteLine();
-			if (!bCryptHasher.VerifyPassword(truePassword, password))
+			if (LoginExist(login))
+			{
+				truePassword = getHashedPassByLogin(login);
+			}
+			else
 			{
 				wrong = true;
 			}
-			//using (var context = new ShopContext(connectionString))
-			//{
-			//	var result = from user_
-			//							 in context.Users
-			//							 where user_.Login.Equals(login) & user_.Password.Equals(password)
-			//							 select user_;
-			//	if (result.Count() == 0)
-			//	{
-			//		wrong = true;
-			//	}
-			//}
+			Console.WriteLine("Введите пароль: ");
+			password = ConsoleReadLineButHashed();
+			Console.WriteLine();
+			if (!wrong)
+			{
+				if (!bCryptHasher.VerifyPassword(truePassword, password))
+				{
+					wrong = true;
+				}
+			}
 			if (wrong)
 			{
 				while (wrong && attemptToLogIn < 3)
@@ -173,33 +169,29 @@ namespace Shop.UI
 					Console.WriteLine($"Осталось попыток - {3 - attemptToLogIn++}");
 					Console.WriteLine("Введите Логин: ");
 					login = Console.ReadLine();
-					truePassword = getHashedPassByLogin(login);
-					Console.WriteLine("Введите пароль: ");
-					password = ConsoleReadLineButHashed();
-					Console.WriteLine();
-					if (!bCryptHasher.VerifyPassword(truePassword, password))
+					if (LoginExist(login))
 					{
-						wrong = true;
+						truePassword = getHashedPassByLogin(login);
+						wrong = false;
 					}
 					else
 					{
-						wrong = false;
+						wrong = true;
 					}
-					//using (var context = new ShopContext(connectionString))
-					//{
-					//	var result = from user_
-					//							 in context.Users
-					//							 where user_.Login.Equals(login) & user_.Password.Equals(password)
-					//							 select user_;
-					//	if (result.Count() == 0)
-					//	{
-					//		wrong = true;
-					//	}
-					//	else
-					//	{
-					//		wrong = false;
-					//	}
-					//}
+					Console.WriteLine("Введите пароль: ");
+					password = ConsoleReadLineButHashed();
+					Console.WriteLine();
+					if (!wrong)
+					{
+						if (!bCryptHasher.VerifyPassword(truePassword, password))
+						{
+							wrong = true;
+						}
+						else
+						{
+							wrong = false;
+						}
+					}
 				}
 			}
 			if (wrong)
@@ -210,7 +202,7 @@ namespace Shop.UI
 			Console.WriteLine("Введите секретный код: ");
 			verCode = ConsoleReadLineButHashed();
 			Console.WriteLine();
-			if (!bCryptHasher.VerifyPassword(trueVerCode,verCode))
+			if (!bCryptHasher.VerifyPassword(trueVerCode, verCode))
 			{
 				wrong = true;
 			}
@@ -246,6 +238,22 @@ namespace Shop.UI
 				user = result.First();
 			}
 			return true;
+		}
+
+		private static bool LoginExist(string login)
+		{
+			using (var context = new ShopContext(connectionString))
+			{
+				var result = from user_
+										 in context.Users
+										 where user_.Login.Equals(login)
+										 select user_;
+				if (result.ToList().Count > 0)
+				{
+					return true;
+				}
+				return false;
+			}
 		}
 
 		private static string getHashedPassByLogin(string login)
